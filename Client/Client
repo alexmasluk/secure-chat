@@ -1,0 +1,34 @@
+#!/usr/bin/python3
+
+import socket
+import sys
+
+def main():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_addr = ('localhost', 10000)
+    sock.connect(server_addr)
+    print('connected to ip:{} port:{}'.format(*server_addr))
+    
+    try:
+        message = b'hey this is a message'
+        print('send {!r}'.format(message))
+        sock.sendall(message)
+
+        amount_received = 0
+        amount_expected = len(message)
+
+        while amount_received < amount_expected:
+            data = sock.recv(16)
+            amount_received += len(data)
+            print('received {!r}'.format(data))
+    finally:
+        print('closing socket')
+        sock.close()
+
+    
+
+
+
+
+if __name__ == '__main__':
+    main()

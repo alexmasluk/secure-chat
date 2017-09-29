@@ -1,0 +1,43 @@
+#!/usr/bin/python3
+import socket
+import sys
+from Requests import register, receive, deliver
+action = {'reg' : register,
+          'rec' : receive,
+          'del' : deliver}
+
+def main():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_address = ('localhost', 10000)
+    sock.bind(server_address)
+    print('socket initialized, ip:{} port:{}'.format(*server_address))
+    sock.listen(1)
+    
+    while True:
+        print('Waiting for client')
+        connection, client_addr = sock.accept()
+        try:
+            print('got client {}'.format(client_addr))        
+            while True:
+                data = connection.recv(16)
+                print('recv:{!r}'.format(data))
+
+                if data:
+                    #TODO first message from client must specify request
+                    print('received "{}" from client'.format(data))
+                    if data in ('reg', 'rec', 'del'):
+                        action[data]
+                    else: 
+                        connection.sendall(b"I couldn't understand you!")
+                    
+                else:
+                    print('receive failed')
+                    break
+        finally:
+            connection.close()
+
+
+
+
+if __name__ == '__main__':
+    main()
