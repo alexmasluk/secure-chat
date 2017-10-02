@@ -2,25 +2,49 @@
 
 import socket
 import sys
+from Requests import register, send, receive
+
+def menu():
+    print("******************************************")
+    print("*                                        *")
+    print("*         S E C U R E   C H A T          *")
+    print("*                                        *")
+    print("******************************************")
+    print("1. Register")
+    print("2. Send msg")
+    print("3. Get msgs")
+    print("4. Exit")
+    choice = input("sec_chat$ ")
+    return choice
+    
+def exit_program():
+    exit()
+
+def initialize():
+    #TODO 
+    '''
+    1. Check if asymmetric key exists; generate if not
+    2. Check if username exists
+    '''
+    pass
+
+actions = { '1' : register,
+            '2' : send,
+            '3' : receive,
+            '4' : exit_program }
 
 def main():
+    initialize()
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_addr = ('localhost', 10000)
     sock.connect(server_addr)
     print('connected to ip:{} port:{}'.format(*server_addr))
-    
+    print('\n')
     try:
-        message = b'hey this is a message'
-        print('send {!r}'.format(message))
-        sock.sendall(message)
-
+        actions[menu()](sock)
         amount_received = 0
-        amount_expected = len(message)
+        amount_expected = 16
 
-        while amount_received < amount_expected:
-            data = sock.recv(16)
-            amount_received += len(data)
-            print('received {!r}'.format(data))
     finally:
         print('closing socket')
         sock.close()

@@ -6,6 +6,21 @@ action = {'reg' : register,
           'rec' : receive,
           'del' : deliver}
 
+def recv(sock):
+    firstchunk = sock.recv(16).decode()
+    if firstchunk:
+        print(firstchunk)
+        received = len(firstchunk)
+        content = ''
+        length, chunk = firstchunk.split('#')
+        content += chunk
+        while received < int(length):
+            nextchunk = sock.recv(16).decode()
+            received += len(nextchunk)
+            content += nextchunk
+        return content
+    return None
+
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_address = ('localhost', 10000)
@@ -19,14 +34,14 @@ def main():
         try:
             print('got client {}'.format(client_addr))        
             while True:
-                data = connection.recv(16)
-                print('recv:{!r}'.format(data))
-
+                data = recv(connection)
                 if data:
-                    #TODO first message from client must specify request
                     print('received "{}" from client'.format(data))
-                    if data in ('reg', 'rec', 'del'):
-                        action[data]
+                    request, content = data.split('%')
+
+                    #TODO first message from client must specify request
+                    if request in ('reg', 'rec', 'del'):
+                        action[request](connection, content)
                     else: 
                         connection.sendall(b"I couldn't understand you!")
                     
