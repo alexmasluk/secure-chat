@@ -3,6 +3,10 @@
 import socket
 import sys
 from Requests import register, send, receive
+from Crypto.PublicKey import RSA
+
+client_key = None
+server_key = None
 
 def menu():
     print("******************************************")
@@ -25,8 +29,26 @@ def initialize():
     '''
     1. Check if asymmetric key exists; generate if not
     2. Check if username exists
+    3. Load server RSA key
     '''
-    pass
+    try: 
+        f = open('user_key.pem')
+        client_key = RSA.importKey(f.read())
+    except FileNotFoundError:
+        f = open
+        client_key =  RSA.generate(2048)
+        with open('user_key.pem', 'w+') as f:
+            f.write(client_key.exportKey('PEM'))
+
+    try:
+        f = open('server_pub.pem') 
+        server_key = RSA.importKey(f.read())
+
+
+    except FileNotFoundError:
+        print('No RSA key found')
+
+
 
 actions = { '1' : register,
             '2' : send,

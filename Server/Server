@@ -1,25 +1,11 @@
 #!/usr/bin/python3
 import socket
 import sys
-from Requests import register, receive, deliver
+from Requests import register, send_message, deliver, recv
 action = {'reg' : register,
-          'rec' : receive,
+          'snd' : send_message,
           'del' : deliver}
 
-def recv(sock):
-    firstchunk = sock.recv(16).decode()
-    if firstchunk:
-        print(firstchunk)
-        received = len(firstchunk)
-        content = ''
-        length, chunk = firstchunk.split('#')
-        content += chunk
-        while received < int(length):
-            nextchunk = sock.recv(16).decode()
-            received += len(nextchunk)
-            content += nextchunk
-        return content
-    return None
 
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -46,7 +32,7 @@ def main():
                         connection.sendall(b"I couldn't understand you!")
                     
                 else:
-                    print('receive failed')
+                    print('client stopped sending')
                     break
         finally:
             connection.close()
