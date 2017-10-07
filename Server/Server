@@ -1,41 +1,71 @@
 #!/usr/bin/python3
 import socket
 import sys
-from Requests import register, send_message, deliver, recv
+import threading
+from Crypto.PublicKey import RSA
+from Requests import register, send_message, recv_message, decrypt, send, recv
 action = {'reg' : register,
           'snd' : send_message,
-          'del' : deliver}
+          'rcv' : recv_message}
+active_connections = {}
 
+def initialize():
+    try:
+        f = open('server_key.pem', 'rb')
+        server_key = RSA.importKey(f.read())
+        f.close()
+    except FileNotFoundError:
+        print('no rsa key found')
+    return server_key
+    
+def handle_client(connection, client_addr):
+    '''Handle communication with individual client
+    Decide what action to take 
+    '''
+    print('started client thread successfully. entering loop')
+    rsa_key = initialize()
+    while True:
+        aes_key = None
+        key_data = recv(connection)
+        if key_data:
+            key_data = decrypt(data,rsa_key)
+            print('received "{}" from client'.format(data))
+            request, content = key_data.split('#')
+            if request == 'key'
+                aes_key = decrypt(content, rsa_key, 'RSA')
+        else:
+            print('client stopped sending')
+            break
+        
+        msg_data = recv(connection)
+        if msg_data:
+            msg_data = decrypt(data, aes_key, 'AES')
+            request, content = msg_data.split('#')
+            if request in ('reg', 'snd', 'rcv'):
+                action[request](connection, content)
+            else: 
+                connection.sendall(b"I couldn't understand you!")
+            
+        else:
+            print('client stopped sending')
+            break
 
 def main():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_address = ('localhost', 10000)
+    sock = socket.socket()
+    server_address = ('', 10000)
     sock.bind(server_address)
     print('socket initialized, ip:{} port:{}'.format(*server_address))
     sock.listen(1)
-    
-    while True:
-        print('Waiting for client')
-        connection, client_addr = sock.accept()
-        try:
-            print('got client {}'.format(client_addr))        
-            while True:
-                data = recv(connection)
-                if data:
-                    print('received "{}" from client'.format(data))
-                    request, content = data.split('%')
 
-                    #TODO first message from client must specify request
-                    if request in ('reg', 'rec', 'del'):
-                        action[request](connection, content)
-                    else: 
-                        connection.sendall(b"I couldn't understand you!")
-                    
-                else:
-                    print('client stopped sending')
-                    break
-        finally:
-            connection.close()
+    try:
+        while True:     # Accept client connection, dispatch thread per client
+            print('Waiting for client')
+            c, client_addr = sock.accept()
+            print('got client {}'.format(client_addr))        
+            t = threading.Thread(target=handle_client, args=(c, client_addr))
+            t.start()
+    finally:
+        sock.close()
 
 
 
