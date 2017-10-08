@@ -26,29 +26,27 @@ def handle_client(connection, client_addr):
     rsa_key = initialize()
     while True:
         aes_key = None
-        key_data = recv(connection)
-        if key_data:
-            key_data = decrypt(data,rsa_key)
+        data = recv(connection)
+        if data:
             print('received "{}" from client'.format(data))
-            request, content = key_data.split('#')
-            if request == 'key'
-                aes_key = decrypt(content, rsa_key, 'RSA')
-        else:
-            print('client stopped sending')
-            break
-        
-        msg_data = recv(connection)
-        if msg_data:
-            msg_data = decrypt(data, aes_key, 'AES')
-            request, content = msg_data.split('#')
+            key_data, msg_data = data.split('%')
+            #print("encryptedKey = '{}' encryptedMessage = '{}'".format(key_data, msg_data))
+            # decrypt the AES key using server's private RSA key
+            aes_key = decrypt(key_data, rsa_key, 'RSA')
+            # use that AES key to decrypt the message itself
+            message = decrypt(msg_data, aes_key, 'AES')
+
+            #print("key = '{}' message = '{}'".format(aes_key, message))
+            request, content = message.split('#')
             if request in ('reg', 'snd', 'rcv'):
                 action[request](connection, content)
             else: 
                 connection.sendall(b"I couldn't understand you!")
-            
+ 
         else:
             print('client stopped sending')
             break
+        
 
 def main():
     sock = socket.socket()
