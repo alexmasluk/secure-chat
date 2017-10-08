@@ -5,15 +5,26 @@ from base64 import b64encode, b64decode
 
 def recv(sock):
     firstchunk = sock.recv(1024).decode()
-    received = len(firstchunk)
-    content = ''
-    length, chunk = firstchunk.split('%')
-    content += chunk
-    while received < int(length):
-        nextchunk = sock.recv(1024).decode()
-        received += len(nextchunk)
-        content += nextchunk
-    return content
+    chunk_count = 0
+    if firstchunk:
+        received = len(firstchunk)
+        content = ''
+        length, keypart, message = firstchunk.split('%')
+        content += keypart + '%' + message
+        while received < int(length):
+            nextchunk = sock.recv(1024).decode()
+            received += len(nextchunk)
+            content += nextchunk
+        return content
+    return None
+
+def decrypt(ciphertext, key=None, mode='RSA'):
+    plaintext = ''
+    if mode == 'RSA':
+        plaintext = RSA_decrypt(key, ciphertext)
+    if mode == 'AES':
+        plaintext = AES_decrypt(key, ciphertext)
+    return plaintext
 
 def encrypt(plaintext, key=None, mode='RSA'):
     ciphertext = ''
@@ -54,8 +65,6 @@ def register(sock,server_key=None,client_key=None,mode=None):
     print("sending")
     send(sock, message, server_key)
     print("waiting response")
-    response = recv(sock)
-    print("response received: {}".format(response))
 
 
 def recv_message():

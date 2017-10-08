@@ -8,11 +8,24 @@ from base64 import b64encode, b64decode
 
 alpha = 'abcdefghijklmnopqrstuvxwyz0123456789'
 server_db = 'server.db'
-def send(conn, message):
-    length = len('%' + message)
-    total_length = len(str(length)) + len('%' + message)
-    message = str(total_length) + '%' + message
-    conn.sendall(message.encode())
+def encrypt(plaintext, key=None, mode='RSA'):
+    ciphertext = ''
+    if mode == 'RSA':
+        ciphertext = RSA_encrypt(key, plaintext)
+    if mode == 'AES':
+        ciphertext = AES_encrypt(key, plaintext)
+    return ciphertext
+
+def send(conn, message, key=None):
+    aes_key = ''.join(random.choice(alpha) for i in range(16))
+    message = encrypt(message, aes_key, 'AES')
+    encrypted_aes_key = encrypt(aes_key, key)
+    full_message = encrypted_aes_key + '%' + message
+    length = len('%' + full_message)
+    total_length = len(str(length)) + len('%' + full_message)
+    full message = str(total_length) + '%' + full_message
+
+    conn.sendall(full_message.encode())
 
 def recv(conn):
     firstchunk = conn.recv(1024).decode()
@@ -23,7 +36,7 @@ def recv(conn):
         received = len(firstchunk)
         content = ''
         length, keypart, message = firstchunk.split('%')
-        content += keypart + '%' +  message
+        content += keypart + '%' + message
         while received < int(length):
             nextchunk = conn.recv(1024).decode()
             received += len(nextchunk)
@@ -46,6 +59,9 @@ def sha_hash(s):
     return b64encode(h.digest())
 
 def register(conn, content):
+    '''Register or login a user
+    Return hashed user name if login successful
+    '''
     # unpack relevant data
     username, password, client_pub = content.split('|')
     print("Received user: {} pass: {}".format(username, password))
@@ -55,34 +71,41 @@ def register(conn, content):
     salt = ''.join(random.choice(alpha) for i in range(12))
     print('salt == {}'.format(salt))
 
-    success = False
-    #TODO check if username already in db
+    # check if username already in db
     sql_conn = sqlite3.connect(server_db)
     c = sql_conn.cursor()
-    c.execute('SELECT salt, username FROM user')
+    c.execute('SELECT salt, username, password FROM user')
     already_exists = False
+    authenticated = False
+    h_uname = None
     for row in c:
-        print('hash == {} str_value == {}'.format(sha_hash(str(row[0]) + username), str(row[1])))
-        if sha_hash(str(row[0]) + username) == str(row[1]):
+        if sha_hash(str(row[0]) + username).decode() == str(row[1]):
             already_exists = True
+            # authenticated with password
+            if sha_hash(str(row[0]) + password).decode() == str(row[2]):
+                authenticated = True
+                h_uname = str(row[1])
 
-    #TODO if doesn't exist, add to db
+    # if doesn't exist, add to db
     if already_exists == False:
-        success = True
+        h_uname = sha_hash(salt + username).decode()
+        h_passw = sha_hash(salt + password).decode()
         uid = str(uuid.uuid4())
-        h_uname = sha_hash(salt + username)
-        h_passw = sha_hash(salt + username)
         c.execute('INSERT INTO user (user_id, salt, password, username, publickey) \
                 VALUES (?, ?, ?, ?, ?)', [uid, salt, h_passw, h_uname, client_pub])
         sql_conn.commit()
-
-
-    if success == True:
-        message = "sup {} we registered you!".format(username)
+        message = "Hey {}! We registered you!".format(username)
+        logged_in_user = h_uname
     else:
-        message = "dude you already registered..."
+        if authenticated == True:
+            message = "Hey {}! We logged you in!".format(username)
+        else:
+            message = "Bad login info!".format(username)
+            h_uname = None
+
     send(conn, message)
     print("sent response")
+    return h_uname
     
 
 def send_message(conn, content):

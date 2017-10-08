@@ -8,6 +8,8 @@ action = {'reg' : register,
           'snd' : send_message,
           'rcv' : recv_message}
 active_connections = {}
+client_pubs = {}
+
 
 def initialize():
     try:
@@ -16,6 +18,7 @@ def initialize():
         f.close()
     except FileNotFoundError:
         print('no rsa key found')
+        return None
     return server_key
     
 def handle_client(connection, client_addr):
@@ -24,11 +27,12 @@ def handle_client(connection, client_addr):
     '''
     print('started client thread successfully. entering loop')
     rsa_key = initialize()
+    client_id = None
     while True:
         aes_key = None
         data = recv(connection)
         if data:
-            print('received "{}" from client'.format(data))
+            #print('received "{}" from client'.format(data))
             key_data, msg_data = data.split('%')
             #print("encryptedKey = '{}' encryptedMessage = '{}'".format(key_data, msg_data))
             # decrypt the AES key using server's private RSA key
@@ -39,12 +43,19 @@ def handle_client(connection, client_addr):
             #print("key = '{}' message = '{}'".format(aes_key, message))
             request, content = message.split('#')
             if request in ('reg', 'snd', 'rcv'):
-                action[request](connection, content)
+                client_id, client_pub = action[request](connection, content)
+                active_connections[client_id] = True
+                client_pub_key = RSA.importKey(client_pub)
+                client_pubs[client_id] = client_pub_key
+                print('active connection from user {}'.format(client_id))
             else: 
                 connection.sendall(b"I couldn't understand you!")
  
         else:
             print('client stopped sending')
+            if client_id in active_connections:
+                active_connections[client_id] = False
+                print('closed connection from user {}'.format(client_id))
             break
         
 

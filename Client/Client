@@ -3,22 +3,27 @@
 import socket
 import sys
 from Crypto.PublicKey import RSA
-from Requests import register, recv_message, send_message
+from Requests import register, recv_message, send_message, recv
 
 client_RSA_key = None
 server_RSA_key_pub = None
 
 
-def menu():
+def title():
     print("******************************************")
     print("*                                        *")
     print("*         S E C U R E   C H A T          *")
     print("*                                        *")
     print("******************************************")
-    print("1. Register")
+
+def menu(a=None,b=None,c=None):
+    print("1. Login/Register")
     print("2. Send msg")
     print("3. Get msgs")
-    print("4. Exit")
+    print("4. Help")
+    print("5. Exit")
+
+def prompt():
     choice = input("sec_chat$ ")
     return choice
     
@@ -29,7 +34,8 @@ def exit_program(a, b, c):
 actions = { '1' : register,
             '2' : send_message,
             '3' : recv_message,
-            '4' : exit_program }
+            '4' : menu,
+            '5' : exit_program }
 
 
 def initialize():
@@ -74,9 +80,18 @@ def main():
     sock.connect(server_addr)
     print('connected to ip:{} port:{}'.format(*server_addr))
     print('\n')
+    title()
+    menu()
     try:
         while True:
-            actions[menu()](sock, server_RSA_key_pub, client_RSA_key)
+            actions[prompt()](sock, server_RSA_key_pub, client_RSA_key)
+            aes_key = None
+            data = recv(connection)
+            if data:
+                key_data, msg_data = data.split('%')
+                aes_key = decrypt(key_data, client_RSA_key, 'RSA')
+                message = decrypt(msg_data, aes_key, 'AES')
+                print('SERVER> {}'.format(message))
 
     finally:
         print('closing socket')

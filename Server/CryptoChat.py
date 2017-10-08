@@ -10,6 +10,13 @@ def pad(s):
 def unpad(s):
     return s[:-ord(s[len(s)-1:])]
 
+def AES_encrypt(key, ptxt):
+    iv = Random.new().read(AES.block_size)
+    cipher = AES.new(key, AES.MODE_CFB, iv)
+    ptxt = pad(ptxt)
+    cbytes = iv + cipher.encrypt(ptxt.encode())
+    return b64encode(cbytes).decode()
+
 def AES_decrypt(key, ctxt):
     cbytes = b64decode(ctxt)
     #key = b64decode(key)
@@ -35,6 +42,6 @@ def RSA_encrypt(key, ptxt):
 def RSA_decrypt(key, ctxt):
     ctxt_decoded = b64decode(ctxt)
     pbytes = key.decrypt(ctxt_decoded)
-    print(str(pbytes, errors='ignore'))
+    #print(str(pbytes, errors='ignore'))
     return pbytes.decode()
 
