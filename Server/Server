@@ -2,6 +2,7 @@
 import socket
 import sys
 import threading
+from base64 import b64encode, b64decode
 from Crypto.PublicKey import RSA
 from Requests import register, send_message, recv_message, decrypt, send, recv
 action = {'reg' : register,
@@ -9,9 +10,11 @@ action = {'reg' : register,
           'rcv' : recv_message}
 active_connections = {}
 client_pubs = {}
-
+rsa_key = None
 
 def initialize():
+    '''Load RSA key pair
+    '''
     try:
         f = open('server_key.pem', 'rb')
         server_key = RSA.importKey(f.read())
@@ -23,35 +26,41 @@ def initialize():
     
 def handle_client(connection, client_addr):
     '''Handle communication with individual client
-    Decide what action to take 
+    Decide what action to take based on client message
     '''
-    print('started client thread successfully. entering loop')
-    rsa_key = initialize()
     client_id = None
+    count = 0
+
+
     while True:
+        count += 1
+        #print('thread loop {}'.format(count))
         aes_key = None
         data = recv(connection)
         if data:
-            #print('received "{}" from client'.format(data))
             key_data, msg_data = data.split('%')
-            #print("encryptedKey = '{}' encryptedMessage = '{}'".format(key_data, msg_data))
             # decrypt the AES key using server's private RSA key
             aes_key = decrypt(key_data, rsa_key, 'RSA')
             # use that AES key to decrypt the message itself
             message = decrypt(msg_data, aes_key, 'AES')
 
-            #print("key = '{}' message = '{}'".format(aes_key, message))
             request, content = message.split('#')
             if request in ('reg', 'snd', 'rcv'):
-                client_id, client_pub = action[request](connection, content)
-                active_connections[client_id] = True
-                client_pub_key = RSA.importKey(client_pub)
-                client_pubs[client_id] = client_pub_key
-                print('active connection from user {}'.format(client_id))
-            else: 
-                connection.sendall(b"I couldn't understand you!")
+                if client_id: # we already have their public key  
+                    action[request](connection, content, client_pubs[client_id])
+                else: # they are loging in / registering
+                    # get client id and public key
+                    client_id, client_pub = action[request](connection, content)
+                    if client_id:
+                        # add client to list of active connections
+                        active_connections[client_id] = True
+
+                        # add client public RSA key to list of keys
+                        client_pub_key = RSA.importKey(b64decode(client_pub))
+                        client_pubs[client_id] = client_pub_key
+                        print('active connection from user {}'.format(client_id))
  
-        else:
+        else: # client dropped connection
             print('client stopped sending')
             if client_id in active_connections:
                 active_connections[client_id] = False
@@ -60,10 +69,16 @@ def handle_client(connection, client_addr):
         
 
 def main():
+    global rsa_key
+    rsa_key = initialize()
+
+    # open socket 
     sock = socket.socket()
     server_address = ('', 10000)
     sock.bind(server_address)
     print('socket initialized, ip:{} port:{}'.format(*server_address))
+
+    # listen for connections
     sock.listen(1)
 
     try:

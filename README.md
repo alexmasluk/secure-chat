@@ -24,4 +24,13 @@ This works as follows:
     c) Sender encrypts message content using the AES key
     d) Sender concats message length, RSA-encrypted AES key, and AES-encrypted message 
 
+The following message content formats are supported:
+Register / Login
+req#username|password|RSA_public_key
+
+Send message
+snd#target_usr|msg_content
+
+Retrieve message
+rcv#username
 

@@ -19,20 +19,11 @@ def AES_encrypt(key, ptxt):
 
 def AES_decrypt(key, ctxt):
     cbytes = b64decode(ctxt)
-    #key = b64decode(key)
-    #print("key = {}".format(key))
     iv = cbytes[:AES.block_size]
-    #print("i v = {}".format(iv))
     msg = cbytes[AES.block_size:]
-    #print("msg = {}".format(msg))
     cipher = AES.new(key, AES.MODE_CFB, iv)
-    print("msglen = {}".format(len(msg)))
-
     pbytes = cipher.decrypt(msg)
-    #print("pbytes len={}".format(len(pbytes)))
-    #print("pbytes    ={}".format(pbytes))
     ptxt = unpad(pbytes)
-    #print("ptxt = {}".format(ptxt))
     return ptxt.decode()
 
 def RSA_encrypt(key, ptxt):
@@ -42,6 +33,5 @@ def RSA_encrypt(key, ptxt):
 def RSA_decrypt(key, ctxt):
     ctxt_decoded = b64decode(ctxt)
     pbytes = key.decrypt(ctxt_decoded)
-    #print(str(pbytes, errors='ignore'))
     return pbytes.decode()
 

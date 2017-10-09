@@ -1,14 +1,18 @@
 #!/usr/bin/python3
 import sqlite3
-import uuid
 import hashlib
-from CryptoChat import RSA_decrypt, AES_decrypt
+from CryptoChat import RSA_decrypt, AES_decrypt, AES_encrypt, RSA_encrypt
 from Crypto.Random import random
+from Crypto.PublicKey import RSA
+from datetime import datetime
 from base64 import b64encode, b64decode
 
 alpha = 'abcdefghijklmnopqrstuvxwyz0123456789'
 server_db = 'server.db'
 def encrypt(plaintext, key=None, mode='RSA'):
+    '''Apply the appropriate encryption method to the plaintext
+    Return the ciphertext
+    '''
     ciphertext = ''
     if mode == 'RSA':
         ciphertext = RSA_encrypt(key, plaintext)
@@ -17,17 +21,35 @@ def encrypt(plaintext, key=None, mode='RSA'):
     return ciphertext
 
 def send(conn, message, key=None):
+    '''Send message to client with unique AES key
+    '''
+    # generate random AES key
     aes_key = ''.join(random.choice(alpha) for i in range(16))
+
+    # encrypt message with this key
     message = encrypt(message, aes_key, 'AES')
-    encrypted_aes_key = encrypt(aes_key, key)
+
+    # encrypt the AES key with RSA key
+    encrypted_aes_key = encrypt(aes_key, key, 'RSA')
+
+    # concat the RSA-encrypted AES key with the AES-encrypted message
     full_message = encrypted_aes_key + '%' + message
+
+    # prepend with length of message
     length = len('%' + full_message)
     total_length = len(str(length)) + len('%' + full_message)
-    full message = str(total_length) + '%' + full_message
+    full_message = str(total_length) + '%' + full_message
 
+    # send to client
     conn.sendall(full_message.encode())
 
 def recv(conn):
+    '''Receive message in chunks. 
+
+    The first chunk will always contain both '%' delimeters. We know this
+    because the length of the RSA-encrypted 16 byte AES key
+    Return the complete with the length prepend removed
+    '''
     firstchunk = conn.recv(1024).decode()
     chunk_count = 0
     if firstchunk:
@@ -45,6 +67,9 @@ def recv(conn):
     return None
 
 def decrypt(ciphertext, key=None, mode='RSA'):
+    '''Apply the appropriate encryption method to the ciphertext
+    Return the plaintext
+    '''
     plaintext = ''
     if mode == 'RSA':
         plaintext = RSA_decrypt(key, ciphertext)
@@ -53,27 +78,31 @@ def decrypt(ciphertext, key=None, mode='RSA'):
     return plaintext
 
 def sha_hash(s):
+    '''Hash a string using sha512
+    Param: the string to hash
+    Return the hashed string
+    '''
     # get hash of s
     h = hashlib.sha512()
     h.update(s.encode())
     return b64encode(h.digest())
 
-def register(conn, content):
+def register(conn, content, client_pub_key = None):
     '''Register or login a user
     Return hashed user name if login successful
     '''
-    # unpack relevant data
+    # unpack message components
     username, password, client_pub = content.split('|')
-    print("Received user: {} pass: {}".format(username, password))
-    #print("client pub = {}".format(b64decode(client_pub)))
-    
-    # generate salt
-    salt = ''.join(random.choice(alpha) for i in range(12))
-    print('salt == {}'.format(salt))
 
-    # check if username already in db
+    # load client RSA key
+    client_pub_key = RSA.importKey(b64decode(client_pub))
+    print("Received user: {} pass: {}".format(username, password))
+    
+    # connect to db
     sql_conn = sqlite3.connect(server_db)
     c = sql_conn.cursor()
+    
+    # check if username already in db
     c.execute('SELECT salt, username, password FROM user')
     already_exists = False
     authenticated = False
@@ -88,31 +117,99 @@ def register(conn, content):
 
     # if doesn't exist, add to db
     if already_exists == False:
+        # generate salt
+        salt = ''.join(random.choice(alpha) for i in range(12))
+        print('salt == {}'.format(salt))
         h_uname = sha_hash(salt + username).decode()
         h_passw = sha_hash(salt + password).decode()
-        uid = str(uuid.uuid4())
-        c.execute('INSERT INTO user (user_id, salt, password, username, publickey) \
-                VALUES (?, ?, ?, ?, ?)', [uid, salt, h_passw, h_uname, client_pub])
+
+        # add to db
+        c.execute('INSERT INTO user (salt, password, username, publickey) \
+                VALUES (?, ?, ?, ?)', [salt, h_passw, h_uname, client_pub])
         sql_conn.commit()
         message = "Hey {}! We registered you!".format(username)
-        logged_in_user = h_uname
-    else:
+    else: # user already registered, and entered correct password
         if authenticated == True:
             message = "Hey {}! We logged you in!".format(username)
-        else:
+        else: # user already registered, but entered incorrect password
             message = "Bad login info!".format(username)
             h_uname = None
 
-    send(conn, message)
+    send(conn, message, client_pub_key)
     print("sent response")
-    return h_uname
+    return h_uname, client_pub
     
 
-def send_message(conn, content):
-    #TODO store in message db
-    pass
+def send_message(conn, content, client_pub_key):
+    '''Load a message into message table on behalf of client
+    These messages will reside in db until retrieved by target user
+    '''
+    # get message components
+    userto, msg_content = content.split('|')
+    print("sending message to {}: '{}'".format(userto, msg_content))
 
-def recv_message(conn, content):
-    #TODO search message db for undelivered messages for recipient
-    #       if they exist, send to recipient
-    pass
+    # connect to db
+    sql_conn = sqlite3.connect(server_db)
+    c = sql_conn.cursor()
+
+    # search for user, grabbing hashed username if they exist
+    c.execute('SELECT salt, username, password FROM user')
+    h_userto = None
+    for row in c:
+        if sha_hash(str(row[0]) + userto).decode() == str(row[1]):
+            h_userto = str(row[1])
+
+    # if user was found, store message for delivery
+    if h_userto: 
+        timestamp = str(datetime.now())
+        c.execute('INSERT INTO message (message_date, target_user, content) \
+                VALUES (?, ?, ?)', [timestamp, h_userto, msg_content])
+        sql_conn.commit()
+        message = "message sent!"
+    else:
+        message = "invalid target user!"
+
+    # send result to client
+    send(conn, message, client_pub_key)
+    
+def recv_message(conn, user, client_pub_key):
+    '''Search message db for undelivered messages addressed to user
+    If they exist, send to recipient
+    '''
+
+    # connect to db
+    sql_conn = sqlite3.connect(server_db)
+    c = sql_conn.cursor()
+    
+    # find hashed username
+    c.execute('SELECT salt, username, password FROM user')
+    h_userto = None
+    for row in c:
+        if sha_hash(str(row[0]) + user).decode() == str(row[1]):
+            h_userto = str(row[1])
+
+    # search for messags
+    print("finding messages for user {}".format(h_userto))
+    c.execute('SELECT rowid, target_user, content FROM message WHERE target_user = ? AND delivered = 0', [h_userto])
+    messages = ''
+    message_ids = []
+    for row in c:
+        print("sending message {} to {}".format(str(row[2]), str(row[1])))
+        messages += str(row[2]) + '|'
+        message_ids.append(row[0])
+    message = messages[:-1]
+    if message == '':
+        message = "You have no new messages"
+    
+    # mark messages as delivered
+    for msg_id in message_ids:
+        #TODO set delivered = 1 in database
+        pass
+
+    # send to client
+    send(conn, message, client_pub_key)
+
+
+
+
+

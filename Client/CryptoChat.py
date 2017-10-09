@@ -15,6 +15,11 @@ def RSA_encrypt(key, ptxt):
     cbytes = key.encrypt(ptxt.encode(), 0)[0]
     return b64encode(cbytes).decode()
 
+def RSA_decrypt(key, ctxt):
+    ctxt_decoded = b64decode(ctxt)
+    pbytes = key.decrypt(ctxt_decoded)
+    return pbytes.decode()
+
 def AES_encrypt(key, ptxt):
     #print('aes key == {}'.format(key))
     iv = Random.new().read(AES.block_size)
@@ -25,3 +30,12 @@ def AES_encrypt(key, ptxt):
     cbytes = iv + cipher.encrypt(ptxt.encode())
     #print('cbytes  == {}'.format(cbytes))
     return b64encode(cbytes).decode()
+
+def AES_decrypt(key, ctxt):
+    cbytes = b64decode(ctxt)
+    iv = cbytes[:AES.block_size]
+    msg = cbytes[AES.block_size:]
+    cipher = AES.new(key, AES.MODE_CFB, iv)
+    pbytes = cipher.decrypt(msg)
+    ptxt = unpad(pbytes)
+    return ptxt.decode()

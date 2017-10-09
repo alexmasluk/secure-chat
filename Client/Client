@@ -2,8 +2,9 @@
 
 import socket
 import sys
+from datetime import datetime
 from Crypto.PublicKey import RSA
-from Requests import register, recv_message, send_message, recv
+from Requests import register, recv_message, send_message, recv, decrypt
 
 client_RSA_key = None
 server_RSA_key_pub = None
@@ -16,34 +17,29 @@ def title():
     print("*                                        *")
     print("******************************************")
 
-def menu(a=None,b=None,c=None):
-    print("1. Login/Register")
-    print("2. Send msg")
-    print("3. Get msgs")
-    print("4. Help")
-    print("5. Exit")
+def menu(a=None,b=None,c=None, d=None):
+    print("1. Send msg")
+    print("2. Get msgs")
+    print("3. Help")
+    print("4. Exit")
 
 def prompt():
     choice = input("sec_chat$ ")
     return choice
     
-def exit_program(a, b, c):
+def exit_program(a=None, b=None, c=None, d=None):
     exit()
 
 # Dictionary mapping user commands to their functions
-actions = { '1' : register,
-            '2' : send_message,
-            '3' : recv_message,
-            '4' : menu,
-            '5' : exit_program }
+actions = { '1' : send_message,
+            '2' : recv_message,
+            '3' : menu,
+            '4' : exit_program }
 
 
 def initialize():
-    #TODO 
-    '''
-    1. Check if asymmetric key exists; generate if not | DONE
-    2. Check if username exists
-    3. Load server RSA key | DONE
+    '''Check if asymmetric key exists; generate if not 
+    Load server RSA key 
     '''
     # check for client RSA key
     global server_RSA_key_pub
@@ -68,31 +64,53 @@ def initialize():
         f.close()
     except FileNotFoundError:
         print('No RSA key found')
-        return False
-    return True
 
-
+    
+def show_response(source, message):
+    '''show formatted response from server
+    '''
+    time = str(datetime.now().time())
+    for message_line in message.split('|'):
+        print('[{} {}] {}'.format(source, time, message_line))
 
 def main():
+    title()
+
+    # load keys
     initialize()
+
+    # connect to server
     sock = socket.socket()
     server_addr = ('localhost', 10000)
     sock.connect(server_addr)
     print('connected to ip:{} port:{}'.format(*server_addr))
     print('\n')
-    title()
+
+    # login / register
+    username = register(sock, server_RSA_key_pub, client_RSA_key)
+    data = recv(sock)
+    if data:
+        key_data, msg_data = data.split('%')
+        aes_key = decrypt(key_data, client_RSA_key, 'RSA')
+        message = decrypt(msg_data, aes_key, 'AES')
+        show_response('SERVER', message)
+        if message == 'Bad login info!':
+            exit_program()
     menu()
+
+    # send / receive messages
     try:
         while True:
-            actions[prompt()](sock, server_RSA_key_pub, client_RSA_key)
-            aes_key = None
-            data = recv(connection)
+            data = None
+            a = prompt()
+            actions[a](sock, server_RSA_key_pub, client_RSA_key, username)
+            if a != "3":    
+                data = recv(sock)
             if data:
                 key_data, msg_data = data.split('%')
                 aes_key = decrypt(key_data, client_RSA_key, 'RSA')
                 message = decrypt(msg_data, aes_key, 'AES')
-                print('SERVER> {}'.format(message))
-
+                show_response('SERVER', message)
     finally:
         print('closing socket')
         sock.close()
