@@ -92,6 +92,18 @@ def p2p_encrypt(key, msg):
     #TODO: encrypt based upon the type of key we share
     return msg
 
+
+def otk(k, messages=None):
+    if messages == None:
+        return k
+    if len(messages) == 1:
+	k = sha_hash(k) + sha_hash(messages[0])
+    if len(messages) == 2:
+	k = sha_hash(k) + sha_hash(messages[0] + messages[1])
+    if len(messages) == 3:
+	k = sha_hash(k + messages[0]) + sha_hash(messages[1] + messages[2])
+    return k
+
 def send_message(sock, server_key, client_key, username):
     list_contacts()
     target_user = input("Send to: ")
@@ -126,3 +138,6 @@ def send_message(sock, server_key, client_key, username):
 def recv_message(sock, server_key, client_key, username):
     message = 'rcv#' + username
     send(sock, message, server_key) 
+    
+    
+    
