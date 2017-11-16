@@ -4,6 +4,7 @@ from Crypto.Random import random
 from datetime import datetime
 from base64 import b64encode, b64decode
 import sqlite3
+import hashlib
 
 client_db = 'client.db'
 
@@ -87,13 +88,18 @@ def list_contacts():
     for row in c:
         print("[{}]".format(str(row[0])))
 
+def sha_hash(s):
+    '''Hash a string using sha512
+    Param: the string to hash
+    Return the hashed string
+    '''
+    # get hash of s
+    h = hashlib.sha512()
+    h.update(s.encode())
+    return b64encode(h.digest())
 
-def p2p_encrypt(key, msg):
-    #TODO: encrypt based upon the type of key we share
-    return msg
 
-
-def otk(k, messages=None):
+def otk_hash(k, messages=None):
     if messages == None:
         return k
     if len(messages) == 1:
@@ -104,11 +110,32 @@ def otk(k, messages=None):
 	k = sha_hash(k + messages[0]) + sha_hash(messages[1] + messages[2])
     return k
 
+def one_time_key(user, key, target):
+    c = sqlite3.connect(client_db).cursor()
+    n = "SELECT content FROM message WHERE \
+            (target_user = '" + user + "' AND source_user = '" + target + "') \
+            OR (target_user = '" + target + "' AND source_user = '" + user + "') \
+            ORDER BY message_time DESC LIMIT 3" \
+    out = []
+    for row in c:
+        out.append(row[0])
+
+    return otk_hash(key, out)
+
+def diffie_hellman():
+    return None
+
 def send_message(sock, server_key, client_key, username):
     list_contacts()
     target_user = input("Send to: ")
     message     = input("Message: ")
+
     # check to see if user already in contacts 
+    '''
+    sql_conn = sqlite3.connect(client_db)
+    c = sql_conn.cursor()
+    c.execute('SELECT username, shared_key FROM contact')
+    found = False
     sql_conn = sqlite3.connect(client_db)
     c = sql_conn.cursor()
     c.execute('SELECT username, shared_key FROM contact')
@@ -121,14 +148,19 @@ def send_message(sock, server_key, client_key, username):
 
     if not found:
         # need a key exchange
-        shared_key = 'diff'
+        shared_key = diffie_hellman()
         c.execute('INSERT INTO contact (username, shared_key) \
                 VALUES (?, ?)', [target_user, shared_key])
-    message = p2p_encrypt(shared_key, message)
-
-    date = str(datetime.now())
+    '''
+	
+    shared_key = diffie_hellman()
+    otk = one_time_key(username, shared_key, target_user)
     c.execute('INSERT INTO message (message_time, content, source_user, target_user) \
             VALUES (?, ?, ?, ?)', [date, message, username, target_user]) 
+    message = encrypt(message, otk, 'AES')
+
+    date = str(datetime.now())
+    
 
     sql_conn.commit()
     message = 'snd#' + target_user + '|' + username +  message 
