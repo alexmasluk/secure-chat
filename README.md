@@ -34,3 +34,11 @@ snd#target_usr|msg_content
 Retrieve message
 rcv#username
 
+
+------------------
+Require the second client because we need to test if the DB will sync with each other when we implement ONE TIME KEY schema.
+
+It is cruial for both client to have sync DB so that the derive key will be the same
+
+
+
