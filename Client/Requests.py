@@ -103,11 +103,11 @@ def otk_hash(k, messages=None):
     if messages == None:
         return k
     if len(messages) == 1:
-	k = sha_hash(k) + sha_hash(messages[0])
+	    k = sha_hash(k) + sha_hash(messages[0])
     if len(messages) == 2:
-	k = sha_hash(k) + sha_hash(messages[0] + messages[1])
+	    k = sha_hash(k) + sha_hash(messages[0] + messages[1])
     if len(messages) == 3:
-	k = sha_hash(k + messages[0]) + sha_hash(messages[1] + messages[2])
+	    k = sha_hash(k + messages[0]) + sha_hash(messages[1] + messages[2])
     return k
 
 def one_time_key(user, key, target):
@@ -115,8 +115,8 @@ def one_time_key(user, key, target):
     n = "SELECT content FROM message WHERE \
             (target_user = '" + user + "' AND source_user = '" + target + "') \
             OR (target_user = '" + target + "' AND source_user = '" + user + "') \
-            ORDER BY message_time DESC LIMIT 3" \
-    out = []
+            ORDER BY message_time DESC LIMIT 3" 
+
     for row in c:
         out.append(row[0])
 
@@ -130,6 +130,9 @@ def send_message(sock, server_key, client_key, username):
     target_user = input("Send to: ")
     message     = input("Message: ")
 
+
+    sql_conn = sqlite3.connect(client_db)
+    c = sql_conn.cursor()
     # check to see if user already in contacts 
     '''
     sql_conn = sqlite3.connect(client_db)
@@ -154,16 +157,17 @@ def send_message(sock, server_key, client_key, username):
     '''
 	
     shared_key = diffie_hellman()
-    otk = one_time_key(username, shared_key, target_user)
+    date = str(datetime.now())
+    #otk = one_time_key(username, shared_key, target_user)
     c.execute('INSERT INTO message (message_time, content, source_user, target_user) \
             VALUES (?, ?, ?, ?)', [date, message, username, target_user]) 
-    message = encrypt(message, otk, 'AES')
+    #message = encrypt(message, otk, 'AES')
 
-    date = str(datetime.now())
+    
     
 
     sql_conn.commit()
-    message = 'snd#' + target_user + '|' + username +  message 
+    message = 'snd#' + target_user + '|' + username +": "+  message 
     send(sock, message, server_key)
     print("waiting response")
 

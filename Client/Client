@@ -18,6 +18,7 @@ def title():
     print("******************************************")
 
 def menu(a=None,b=None,c=None, d=None):
+    print("Choose Option")
     print("1. Send msg")
     print("2. Get msgs")
     print("3. Help")
@@ -79,9 +80,12 @@ def main():
     # load keys
     initialize()
 
+    #Address = 'ec2-54-167-189-9.compute-1.amazonaws.com'
+    Address = 'localhost'
+    PORT = 10000
     # connect to server
     sock = socket.socket()
-    server_addr = ('localhost', 10000)
+    server_addr = (Address, PORT)
     sock.connect(server_addr)
     print('connected to ip:{} port:{}'.format(*server_addr))
     print('\n')
@@ -96,28 +100,26 @@ def main():
         show_response('SERVER', message)
         if message == 'Bad login info!':
             exit_program()
-    menu()
+    
 
     # send / receive messages
     try:
         while True:
+            menu()
             data = None
             a = prompt()
-            actions[a](sock, server_RSA_key_pub, client_RSA_key, username)
-            if a != "3":    
-                data = recv(sock)
-            if data:
-                key_data, msg_data = data.split('%')
-                aes_key = decrypt(key_data, client_RSA_key, 'RSA')
-                message = decrypt(msg_data, aes_key, 'AES')
-                show_response('SERVER', message)
+            if ((a >= "1") and (a <= "4")):
+                actions[a](sock, server_RSA_key_pub, client_RSA_key, username)
+                if a != "3":    
+                    data = recv(sock)
+                if data:
+                    key_data, msg_data = data.split('%')
+                    aes_key = decrypt(key_data, client_RSA_key, 'RSA')
+                    message = decrypt(msg_data, aes_key, 'AES')
+                    show_response('SERVER', message)
     finally:
         print('closing socket')
         sock.close()
-
-    
-
-
 
 
 if __name__ == '__main__':

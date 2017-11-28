@@ -190,21 +190,26 @@ def recv_message(conn, user, client_pub_key):
 
     # search for messags
     print("finding messages for user {}".format(h_userto))
-    c.execute('SELECT rowid, target_user, content FROM message WHERE target_user = ? AND delivered = 0', [h_userto])
+    c.execute('SELECT rowid, target_user, content, message_date FROM message WHERE target_user = ? AND delivered = 0', [h_userto])
     messages = ''
     message_ids = []
+    message_time = []
     for row in c:
         print("sending message {} to {}".format(str(row[2]), str(row[1])))
         messages += str(row[2]) + '|'
         message_ids.append(row[0])
+        message_time.append(row[3])
     message = messages[:-1]
     if message == '':
         message = "You have no new messages"
     
     # mark messages as delivered
-    for msg_id in message_ids:
+    for msg_id in message_time:
+        #print(msg_id)
         #TODO set delivered = 1 in database
-        pass
+        c.execute('UPDATE message SET delivered = ? WHERE message_date = ?', [bin(1),msg_id])
+        sql_conn.commit()
+        #pass
 
     # send to client
     send(conn, message, client_pub_key)
