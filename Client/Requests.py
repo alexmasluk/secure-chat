@@ -111,6 +111,7 @@ def otk_hash(k, messages=None):
     return k
 
 def one_time_key(user, key, target):
+    out =[]
     c = sqlite3.connect(client_db).cursor()
     n = "SELECT content FROM message WHERE \
             (target_user = '" + user + "' AND source_user = '" + target + "') \
@@ -120,10 +121,16 @@ def one_time_key(user, key, target):
     for row in c:
         out.append(row[0])
 
-    return otk_hash(key, out)
+    string_key = otk_hash(key, out)
+    #print(type(string_key))
+    #print(type(str.encode(string_key))+ " " + string_key)
+    key_out = ''.join(random.choice('abcdefghijklmnopqrstuvwxyz01234567890') for i in range(16))
+    #print(size(key_out))
+    return key_out
 
 def diffie_hellman():
-    return None
+    pass
+    return 0
 
 def send_message(sock, server_key, client_key, username):
     list_contacts()
@@ -135,10 +142,6 @@ def send_message(sock, server_key, client_key, username):
     c = sql_conn.cursor()
     # check to see if user already in contacts 
     '''
-    sql_conn = sqlite3.connect(client_db)
-    c = sql_conn.cursor()
-    c.execute('SELECT username, shared_key FROM contact')
-    found = False
     sql_conn = sqlite3.connect(client_db)
     c = sql_conn.cursor()
     c.execute('SELECT username, shared_key FROM contact')
@@ -158,10 +161,10 @@ def send_message(sock, server_key, client_key, username):
 	
     shared_key = diffie_hellman()
     date = str(datetime.now())
-    #otk = one_time_key(username, shared_key, target_user)
+    otk = one_time_key(username, shared_key, target_user)
     c.execute('INSERT INTO message (message_time, content, source_user, target_user) \
             VALUES (?, ?, ?, ?)', [date, message, username, target_user]) 
-    #message = encrypt(message, otk, 'AES')
+    message = encrypt(message, otk, 'AES')
 
     
     
@@ -174,6 +177,16 @@ def send_message(sock, server_key, client_key, username):
 def recv_message(sock, server_key, client_key, username):
     message = 'rcv#' + username
     send(sock, message, server_key) 
+
+def decodeMessage(username, message, target):
+
+    shared_key = 0
+    target_user = target
+    otk = one_time_key(username, shared_key, target_user)
+    #message = message.decode('utf-8')
+    message = decrypt(message, otk, 'AES')
+    return message
+
     
     
     

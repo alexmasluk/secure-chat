@@ -200,6 +200,7 @@ def recv_message(conn, user, client_pub_key):
         message_ids.append(row[0])
         message_time.append(row[3])
     message = messages[:-1]
+    print("adasda --- "+ message)
     if message == '':
         message = "You have no new messages"
     

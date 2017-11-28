@@ -4,7 +4,7 @@ import socket
 import sys
 from datetime import datetime
 from Crypto.PublicKey import RSA
-from Requests import register, recv_message, send_message, recv, decrypt
+from Requests import register, recv_message, send_message, recv, decrypt, decodeMessage
 
 client_RSA_key = None
 server_RSA_key_pub = None
@@ -74,6 +74,16 @@ def show_response(source, message):
     for message_line in message.split('|'):
         print('[{} {}] {}'.format(source, time, message_line))
 
+def show_response_rec(source, message, user):
+    time = str(datetime.now().time())
+    #print(message)
+    for message_line in message.split('|'):
+        try:
+            target, message = message_line.split(': ')
+            message = decodeMessage(user, message, target)
+        finally:
+            print('[{} {}] {}'.format(source, time, message))
+
 def main():
     title()
 
@@ -116,7 +126,11 @@ def main():
                     key_data, msg_data = data.split('%')
                     aes_key = decrypt(key_data, client_RSA_key, 'RSA')
                     message = decrypt(msg_data, aes_key, 'AES')
-                    show_response('SERVER', message)
+                    if(a == "2"):
+                        show_response_rec('SERVER', message, username)
+                        #show_response('SERVER', message)
+                    else:
+                        show_response('SERVER', message)
     finally:
         print('closing socket')
         sock.close()
