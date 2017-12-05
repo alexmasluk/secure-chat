@@ -157,7 +157,7 @@ def diffie_hellman():
     return 0
 
 def send_message(sock, server_key, client_key, username):
-    list_contacts()
+    #list_contacts()
     target_user = input("Send to: ")
     message     = input("Message: ")
 
