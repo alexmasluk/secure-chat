@@ -95,7 +95,7 @@ def main():
     initialize()
 
     #Address = 'ec2-54-167-189-9.compute-1.amazonaws.com'
-    Address = 'localhost'
+    Address = '34.229.21.160'
     PORT = 10000
     # connect to server
     sock = socket.socket()
