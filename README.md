@@ -2,7 +2,6 @@
 
 **This is the repo for our group project**
 
-
 What we have so far
 -Server and Client each have a sqlite3 database
 -Each db has a user and message table 
@@ -19,6 +18,7 @@ What we have so far
 7) Client and server can send message formatted as follows
 MESSAGE_LENGTH%RSA_pub(random_AES_key)%random_AES_key(request_type#msg_content1|msg_content2|..|msg_contentN)
 This works as follows:
+
     a) Sender generates a random AES key
     b) Sender encrypts the AES key using receiver's public RSA key
     c) Sender encrypts message content using the AES key
@@ -40,7 +40,7 @@ Require the second client because we need to test if the DB will sync with each 
 It is cruial for both client to have sync DB so that the derive key will be the same
 
 -------------------------------------
-#How to run
+# How to run
 
 1. Setup and run the server
     Server can be run from AWS with a correct security policy
