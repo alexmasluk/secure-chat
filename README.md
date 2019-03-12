@@ -3,11 +3,11 @@
 **This is the repo for our group project**
 
 What we have so far
--Server and Client each have a sqlite3 database
--Each db has a user and message table 
--Server has a private RSA key
--Each client has a copy of server's public RSA key
--Each client has an RSA key pair 
+- Server and Client each have a sqlite3 database
+- Each db has a user and message table 
+- Server has a private RSA key
+- Each client has a copy of server's public RSA key
+- Each client has an RSA key pair 
 
 1) Server loads RSA key
 2) Server listens for client connections
